@@ -1,5 +1,6 @@
 package todo;
 import done.*;
+import se.lth.cs.realtime.semaphore.MutexSem;
 import se.lth.cs.realtime.semaphore.Semaphore;
 
 /**
@@ -12,7 +13,13 @@ public class AlarmClock {
 
 	private ClockInput	input;
 	private ClockOutput	output;
-	private Semaphore	signal; 
+	private Semaphore	signal;
+	private int time;
+	private Thread edit;
+	private int alarmTime;
+	private MutexSem mutex;
+	private int alarmCounter;
+	private boolean alarmOn;
 	// Declare thread objects here..
 
 	/**
@@ -24,6 +31,11 @@ public class AlarmClock {
 		input = i;
 		output = o;
 		signal = input.getSemaphoreInstance();
+		mutex = new MutexSem();
+		time = 1000000;
+		alarmTime = 0;
+		alarmCounter = 0;
+		alarmOn = false;
 	}
 
 	/**
@@ -42,10 +54,62 @@ public class AlarmClock {
 		// make something happen by exercising the IO:
 
 		// Create thread objects here...
-		Thread removeMeFromApplication = new Thread(new InputOutputTest());
+		Thread time = new Thread(new TimeThread(this));
+		Thread edit = new Thread(new EditThread(input, this));
 		
 		// Create threads of execution by calling start...
-		removeMeFromApplication.start(); 
+		time.start();
+		edit.start();
+	}
+	
+	public void tick() {
+		// Control what happens each tick
+		mutex.take();
+		time++;
+		int hhmmss = time % 1000000;
+		int h = (hhmmss / 10000) - 100;
+		int m = ((hhmmss / 100) - 10000) - h * 100;
+		int s = (hhmmss % 100);
+		if (s >= 60) {
+			s = 0;
+			m++;
+		}
+		if (m >= 60) {
+			m = 0;
+			h++;
+		}
+		if (h >= 24) {
+			h = 0;
+		}
+		hhmmss = (h * 10000) + (m * 100) + s;
+		time = 1000000 + hhmmss;
+		output.showTime(time);
+		output.console(String.valueOf(time));
+		if (time == alarmTime && input.getAlarmFlag()) {
+			alarmOn = true;
+		}
+		if (alarmOn && alarmCounter < 20) {
+			output.doAlarm();
+			alarmCounter++;
+		} else {
+			alarmOn = false;
+			alarmCounter = 0;
+		}
+		mutex.give();
+	}
+	
+	public void setAlarm(int hhmmss) {
+		mutex.take();
+		alarmTime = hhmmss;
+		alarmOn = false;
+		mutex.give();
+	}
+	
+	public void setTime(int hhmmss) {
+		mutex.take();
+		time = 1000000 + hhmmss;
+		alarmOn = false;
+		mutex.give();
 	}
 	
 	class InputOutputTest implements Runnable {
