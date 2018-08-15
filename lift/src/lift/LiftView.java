@@ -187,7 +187,7 @@ public class LiftView {
 	private class Basket extends FixedSizePanel {
 		private static final long serialVersionUID = 1L;
 		private int width,floorHeight,noOfFloors;
-		private int INCREMENT = 2;
+		private int INCREMENT = 6;
 		private int load;
 
 		public Basket(int w,int nof,int fh,FixedSizePanel shaft) {
